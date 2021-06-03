@@ -12,10 +12,10 @@ LABEL maintainer="${USER_NAME} <${USER_EMAIL}>" \
 
 ENV DESIRED_VERSION $DESIRED_VERSION
 RUN apt update
-RUN apt install git
+RUN sudo apt install git
 RUN mkdir -p $PWD/src/github.com/aquasecurity
-RUN cd $PWD/src/github.com/aquasecurity
-RUN git clone --depth 1 --branch v0.18.3 https://github.com/aquasecurity/trivy
-RUN cd trivy/cmd/trivy/ && \
+RUN cd $PWD/src/github.com/aquasecurity && \
+    git clone --depth 1 --branch v0.18.3 https://github.com/aquasecurity/trivy && \
+    cd trivy/cmd/trivy/ && \
     export GO111MODULE=on && \
     go install
