@@ -1,4 +1,4 @@
-FROM w6dio/docker-bash
+FROM golang:1.12-alpine AS builder
 ARG VCS_REF
 ARG BUILD_DATE
 ARG VERSION
@@ -10,10 +10,17 @@ LABEL maintainer="${USER_NAME} <${USER_EMAIL}>" \
         org.label-schema.build-date=$BUILD_DATE \
         org.label-schema.version=$VERSION
 
-ENV DESIRED_VERSION $DESIRED_VERSION
-ENV GO111MODULE=on
-RUN mkdir -p /src/github.com/aquasecurity
-RUN git clone --depth 1 --branch v0.18.3 https://github.com/aquasecurity/trivy /src/github.com/aquasecurity/trivy
-RUN go version
-RUN ls -la /src/github.com/aquasecurity/trivy/cmd/trivy/
-RUN go install /src/github.com/aquasecurity/trivy/cmd/trivy/
+ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+COPY go.mod go.sum /app/
+WORKDIR /app/
+RUN apk --no-cache add git upx
+RUN go mod download
+COPY . /app/
+RUN go build -ldflags "-X main.version=$(git describe --tags --abbrev=0)" -a -o /trivy cmd/trivy/main.go
+RUN upx --lzma --best /trivy
+
+FROM alpine:3.10
+RUN apk --no-cache add ca-certificates git rpm
+COPY --from=builder /trivy /usr/local/bin/trivy
+
+ENTRYPOINT ["trivy"]
