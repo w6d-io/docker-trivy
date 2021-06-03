@@ -13,11 +13,10 @@ LABEL maintainer="${USER_NAME} <${USER_EMAIL}>" \
 RUN apk --no-cache add git upx
 RUN mkdir -p /app/
 RUN git clone --depth 1 --branch v0.18.3 https://github.com/aquasecurity/trivy /trivy
-RUN mv /trivy/go.mod /go.mod
-RUN mv /trivy/go.sum /go.sum
-ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
-COPY go.mod go.sum /app/
+RUN mv /trivy/go.mod /app/go.mod
+RUN mv /trivy/go.sum /app/go.sum
 WORKDIR /app/
+ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 RUN go mod download
 COPY . /app/
 RUN go build -ldflags "-X main.version=$(git describe --tags --abbrev=0)" -a -o /trivy cmd/trivy/main.go
