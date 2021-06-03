@@ -11,6 +11,8 @@ LABEL maintainer="${USER_NAME} <${USER_EMAIL}>" \
         org.label-schema.version=$VERSION
 
 ENV DESIRED_VERSION $DESIRED_VERSION
+RUN apt update
+RUN apt install git
 RUN mkdir -p $PWD/src/github.com/aquasecurity
 RUN cd $PWD/src/github.com/aquasecurity
 RUN git clone --depth 1 --branch v0.18.3 https://github.com/aquasecurity/trivy
