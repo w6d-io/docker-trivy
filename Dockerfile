@@ -10,10 +10,12 @@ LABEL maintainer="${USER_NAME} <${USER_EMAIL}>" \
         org.label-schema.build-date=$BUILD_DATE \
         org.label-schema.version=$VERSION
 
-ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
-COPY go.mod go.sum /app/
-WORKDIR /app/
 RUN apk --no-cache add git upx
+RUN mkdir -p /app/
+RUN git clone --depth 1 --branch v0.18.3 https://github.com/aquasecurity/trivy /trivy
+ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+COPY /trivy/go.mod /trivy/go.sum /app/
+WORKDIR /app/
 RUN go mod download
 COPY . /app/
 RUN go build -ldflags "-X main.version=$(git describe --tags --abbrev=0)" -a -o /trivy cmd/trivy/main.go
