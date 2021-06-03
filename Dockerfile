@@ -13,7 +13,7 @@ LABEL maintainer="${USER_NAME} <${USER_EMAIL}>" \
 ENV DESIRED_VERSION $DESIRED_VERSION
 RUN mkdir -p $PWD/src/github.com/aquasecurity
 RUN cd $PWD/src/github.com/aquasecurity
-RUN git clone --depth 1 --branch v0.18.3 https://github.com/aquasecurity/trivy && \
+RUN git clone --depth 1 --branch v0.18.3 https://github.com/aquasecurity/trivy
 RUN cd trivy/cmd/trivy/ && \
     export GO111MODULE=on && \
     go install
