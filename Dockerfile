@@ -12,8 +12,8 @@ LABEL maintainer="${USER_NAME} <${USER_EMAIL}>" \
 
 ENV DESIRED_VERSION $DESIRED_VERSION
 RUN apt update
-RUN git --version
 RUN sudo apt install git
+RUN git --version
 RUN mkdir -p $PWD/src/github.com/aquasecurity
 RUN cd $PWD/src/github.com/aquasecurity && \
     git clone --depth 1 --branch v0.18.3 https://github.com/aquasecurity/trivy && \
