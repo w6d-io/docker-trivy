@@ -11,9 +11,9 @@ LABEL maintainer="${USER_NAME} <${USER_EMAIL}>" \
         org.label-schema.version=$VERSION
 
 RUN apk --no-cache add ca-certificates git
-RUN cd cmd/trivy/ && \
+RUN cd trivy/cmd/trivy/ && \
 export GO111MODULE=on && \
-go install && \
-cp trivy /usr/local/bin/trivy
+go install
+RUN cp trivy /usr/local/bin/trivy
 COPY contrib/*.tpl contrib/
 ENTRYPOINT ["trivy"]
