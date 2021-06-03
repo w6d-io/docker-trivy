@@ -12,7 +12,7 @@ LABEL maintainer="${USER_NAME} <${USER_EMAIL}>" \
 
 ENV DESIRED_VERSION $DESIRED_VERSION
 RUN apt update
-RUN sudo apt install git
+RUN apt-get install git
 RUN git --version
 RUN mkdir -p $PWD/src/github.com/aquasecurity
 RUN cd $PWD/src/github.com/aquasecurity && \
