@@ -1,195 +1,78 @@
-###############################
-# Common defaults/definitions #
-###############################
+VERSION := $(shell git describe --tags)
+LDFLAGS=-ldflags "-s -w -X=main.version=$(VERSION)"
 
-comma := ,
+GOPATH=$(shell go env GOPATH)
+GOBIN=$(GOPATH)/bin
+GOSRC=$(GOPATH)/src
 
-# Checks two given strings for equality.
-eq = $(if $(or $(1),$(2)),$(and $(findstring $(1),$(2)),\
-                                $(findstring $(2),$(1))),1)
+MKDOCS_IMAGE := w6dio/trivy:latest
+MKDOCS_PORT := 8000
 
+u := $(if $(update),-u)
 
+$(GOBIN)/wire:
+	GO111MODULE=off go get github.com/google/wire/cmd/wire
 
+.PHONY: wire
+wire: $(GOBIN)/wire
+	wire gen ./pkg/...
 
-######################
-# Project parameters #
-######################
+.PHONY: mock
+mock: $(GOBIN)/mockery
+	mockery -all -inpkg -case=snake -dir $(DIR)
 
-TRIVY_VER ?= $(strip \
-	$(shell grep 'ARG nmap_ver=' Dockerfile | cut -d '=' -f2))
-BUILD_REV ?= $(strip \
-	$(shell grep 'ARG build_rev=' Dockerfile | cut -d '=' -f2))
+.PHONY: deps
+deps:
+	go get ${u} -d
+	go mod tidy
 
-NAMESPACES := w6dio \
-              ghcr.io/w6dio \
-              quay.io/w6dio
-NAME := docker-trivy
-TAGS ?= $(TRIVY_VER)-r$(BUILD_REV) \
-        $(TRIVY_VER) \
-        $(strip $(shell echo $(TRIVY_VER) | cut -d '.' -f1)) \
-        latest
-VERSION ?= $(word 1,$(subst $(comma), ,$(TAGS)))
+$(GOBIN)/golangci-lint:
+	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $(GOBIN) v1.21.0
 
+.PHONY: test
+test:
+	go test -v -short -coverprofile=coverage.txt -covermode=atomic ./...
 
+integration/testdata/fixtures/*.tar.gz:
+	git clone https://github.com/aquasecurity/trivy-test-images.git integration/testdata/fixtures
 
+.PHONY: test-integration
+test-integration: integration/testdata/fixtures/*.tar.gz
+	go test -v -tags=integration ./integration/...
 
-###########
-# Aliases #
-###########
+.PHONY: lint
+lint: $(GOBIN)/golangci-lint
+	$(GOBIN)/golangci-lint run
 
-image: docker.image
+.PHONY: fmt
+fmt:
+	find ./ -name "*.proto" | xargs clang-format -i
 
-push: docker.push
+.PHONY: build
+build:
+	go build $(LDFLAGS) ./cmd/trivy
 
-release: git.release
+.PHONY: protoc
+protoc:
+	find ./rpc/ -name "*.proto" -type f -exec protoc --proto_path=$(GOSRC):. --twirp_out=. --go_out=. {} \;
 
-tags: docker.tags
+.PHONY: install
+install:
+	go install $(LDFLAGS) ./cmd/trivy
 
-test: test.docker
+.PHONY: clean
+clean:
+	rm -rf integration/testdata/fixtures/
 
+$(GOBIN)/labeler:
+	GO111MODULE=off go get github.com/knqyf263/labeler
 
+.PHONY: label
+label: $(GOBIN)/labeler
+	labeler apply misc/triage/labels.yaml -r aquasecurity/trivy -l 5
 
-
-###################
-# Docker commands #
-###################
-
-docker-namespaces = $(strip $(if $(call eq,$(namespaces),),\
-                            $(NAMESPACES),$(subst $(comma), ,$(namespaces))))
-docker-tags = $(strip $(if $(call eq,$(tags),),\
-                      $(TAGS),$(subst $(comma), ,$(tags))))
-
-
-# Build Docker image with the given tag.
-#
-# Usage:
-#	make docker.image [tag=($(VERSION)|<docker-tag>)]] [no-cache=(no|yes)]
-#	                  [TRIVY_VER=<trivy-version>]
-#	                  [BUILD_REV=<build-revision>]
-
-docker.image:
-	docker build --network=host --force-rm \
-		$(if $(call eq,$(no-cache),yes),--no-cache --pull,) \
-		--build-arg nmap_ver=$(TRIVY_VER) \
-		--build-arg build_rev=$(BUILD_REV) \
-		-t w6dio/$(NAME):$(if $(call eq,$(tag),),$(VERSION),$(tag)) ./
-
-
-# Manually push Docker images to container registries.
-#
-# Usage:
-#	make docker.push [tags=($(TAGS)|<docker-tag-1>[,<docker-tag-2>...])]
-#	                 [namespaces=($(NAMESPACES)|<prefix-1>[,<prefix-2>...])]
-
-docker.push:
-	$(foreach tag,$(subst $(comma), ,$(docker-tags)),\
-		$(foreach namespace,$(subst $(comma), ,$(docker-namespaces)),\
-			$(call docker.push.do,$(namespace),$(tag))))
-define docker.push.do
-	$(eval repo := $(strip $(1)))
-	$(eval tag := $(strip $(2)))
-	docker push $(repo)/$(NAME):$(tag)
-endef
-
-
-# Tag Docker image with the given tags.
-#
-# Usage:
-#	make docker.tags [of=($(VERSION)|<docker-tag>)]
-#	                 [tags=($(TAGS)|<docker-tag-1>[,<docker-tag-2>...])]
-#	                 [namespaces=($(NAMESPACES)|<prefix-1>[,<prefix-2>...])]
-
-docker-tags-of = $(if $(call eq,$(of),),$(VERSION),$(of))
-
-docker.tags:
-	$(foreach tag,$(subst $(comma), ,$(docker-tags)),\
-		$(foreach namespace,$(subst $(comma), ,$(docker-namespaces)),\
-			$(call docker.tags.do,$(docker-tags-of),$(namespace),$(tag))))
-define docker.tags.do
-	$(eval from := $(strip $(1)))
-	$(eval repo := $(strip $(2)))
-	$(eval to := $(strip $(3)))
-	docker tag w6dio/$(NAME):$(from) $(repo)/$(NAME):$(to)
-endef
-
-
-docker.test: test.docker
-
-
-
-
-####################
-# Testing commands #
-####################
-
-# Run Bats tests for Docker image.
-#
-# Documentation of Bats:
-#	https://github.com/bats-core/bats-core
-#
-# Usage:
-#	make test.docker [tag=($(VERSION)|<tag>)]
-
-test.docker:
-ifeq ($(wildcard node_modules/.bin/bats),)
-	@make npm.install
-endif
-	IMAGE=w6dio/$(NAME):$(if $(call eq,$(tag),),$(VERSION),$(tag)) \
-	node_modules/.bin/bats \
-		--timing $(if $(call eq,$(CI),),--pretty,--formatter tap) \
-		tests/main.bats
-
-
-
-
-################
-# NPM commands #
-################
-
-# Resolve project NPM dependencies.
-#
-# Usage:
-#	make npm.install [dockerized=(no|yes)]
-
-npm.install:
-ifeq ($(dockerized),yes)
-	docker run --rm --network=host -v "$(PWD)":/app/ -w /app/ \
-		node \
-			make npm.install dockerized=no
-else
-	npm install
-endif
-
-
-
-
-################
-# Git commands #
-################
-
-# Release project version (apply version tag and push).
-#
-# Usage:
-#	make git.release [ver=($(VERSION)|<proj-ver>)]
-
-git-release-tag = $(strip $(if $(call eq,$(ver),),$(VERSION),$(ver)))
-
-git.release:
-ifeq ($(shell git rev-parse $(git-release-tag) >/dev/null 2>&1 && echo "ok"),ok)
-	$(error "Git tag $(git-release-tag) already exists")
-endif
-	git tag $(git-release-tag) master
-	git push origin refs/tags/$(git-release-tag)
-
-
-
-
-##################
-# .PHONY section #
-##################
-
-.PHONY: image push release tags test \
-        docker.image docker.push docker.tags docker.test \
-        git.release \
-        npm.install \
-        test.docker
+.PHONY: mkdocs-serve
+## Runs MkDocs development server to preview the documentation page
+mkdocs-serve:
+	docker build -t $(MKDOCS_IMAGE) -f docs/build/Dockerfile docs/build
+	docker run --name mkdocs-serve --rm -v $(PWD):/docs -p $(MKDOCS_PORT):8000 $(MKDOCS_IMAGE)
