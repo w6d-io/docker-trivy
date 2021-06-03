@@ -15,4 +15,4 @@ RUN mkdir -p $PWD/src/github.com/aquasecurity
 RUN git clone --depth 1 --branch v0.18.3 https://github.com/aquasecurity/trivy $PWD/src/github.com/aquasecurity/trivy
 ENV GO111MODULE=on
 RUN go version
-RUN cd $PWD/src/github.com/aquasecurity/trivy/cmd/trivy/ && go install
+RUN go install $PWD/src/github.com/aquasecurity/trivy/cmd/trivy/
