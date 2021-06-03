@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+if [ -z "$2" ] ; then
+  echo "Usage : $(basename $0) <release name> <namespace>"
+  exit 1
+fi
+RELEASE_NAME=$1
+NS=$2
+helm3 -n ${NS} get manifest ${RELEASE_NAME} | yq -r '. | select((.kind=="Deployment") or (.kind=="StatefulSet") or (.kind=="DaemonSet")) | .kind+"/"+.metadata.name'

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+if [ -z "$2" ] ; then
+  echo "Missing argument: $(basename $0) <release name> <namespace>"
+  return 1
+fi
+RELEASE_NAME=$1
+NS=$2
+for resource in $(get_resources_from_rollout ${RELEASE_NAME} ${NS})
+do
+  kubectl --namespace "${NS}" rollout status -w ${resource}
+done
+exit 0
