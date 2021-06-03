@@ -11,10 +11,8 @@ LABEL maintainer="${USER_NAME} <${USER_EMAIL}>" \
         org.label-schema.version=$VERSION
 
 ENV DESIRED_VERSION $DESIRED_VERSION
-RUN mkdir -p $PWD/src/github.com/aquasecurity
-RUN git clone --depth 1 --branch v0.18.3 https://github.com/aquasecurity/trivy $PWD/src/github.com/aquasecurity/trivy
+RUN mkdir -p /src/github.com/aquasecurity
+RUN git clone --depth 1 --branch v0.18.3 https://github.com/aquasecurity/trivy /src/github.com/aquasecurity/trivy
 ENV GO111MODULE=on
 RUN go version
-RUN echo $PWD
-RUN echo ${PWD}
-RUN go install $PWD/src/github.com/aquasecurity/trivy/cmd/trivy/
+RUN go install /src/github.com/aquasecurity/trivy/cmd/trivy/
