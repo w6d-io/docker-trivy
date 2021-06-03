@@ -69,7 +69,7 @@ $(GOBIN)/labeler:
 
 .PHONY: label
 label: $(GOBIN)/labeler
-	labeler apply misc/triage/labels.yaml -r aquasecurity/trivy -l 5
+	labeler apply misc/triage/labels.yaml -r w6dio/trivy -l 5
 
 .PHONY: mkdocs-serve
 ## Runs MkDocs development server to preview the documentation page
