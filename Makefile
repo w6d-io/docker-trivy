@@ -1,78 +1,19 @@
-VERSION := $(shell git describe --tags)
-LDFLAGS=-ldflags "-s -w -X=main.version=$(VERSION)"
 
-GOPATH=$(shell go env GOPATH)
-GOBIN=$(GOPATH)/bin
-GOSRC=$(GOPATH)/src
+IMG ?= w6dio/docker-trivy:latest
 
-MKDOCS_IMAGE := w6dio/trivy:latest
-MKDOCS_PORT := 8000
 
-u := $(if $(update),-u)
+REF=$(shell git symbolic-ref --quiet HEAD 2> /dev/null)
+VERSION=$(shell basename $(REF) )
+VCS_REF=$(shell git rev-parse HEAD)
+BUILD_DATE=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-$(GOBIN)/wire:
-	GO111MODULE=off go get github.com/google/wire/cmd/wire
+all: build push
 
-.PHONY: wire
-wire: $(GOBIN)/wire
-	wire gen ./pkg/...
-
-.PHONY: mock
-mock: $(GOBIN)/mockery
-	mockery -all -inpkg -case=snake -dir $(DIR)
-
-.PHONY: deps
-deps:
-	go get ${u} -d
-	go mod tidy
-
-$(GOBIN)/golangci-lint:
-	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $(GOBIN) v1.21.0
-
-.PHONY: test
-test:
-	go test -v -short -coverprofile=coverage.txt -covermode=atomic ./...
-
-integration/testdata/fixtures/*.tar.gz:
-	git clone https://github.com/aquasecurity/trivy-test-images.git integration/testdata/fixtures
-
-.PHONY: test-integration
-test-integration: integration/testdata/fixtures/*.tar.gz
-	go test -v -tags=integration ./integration/...
-
-.PHONY: lint
-lint: $(GOBIN)/golangci-lint
-	$(GOBIN)/golangci-lint run
-
-.PHONY: fmt
-fmt:
-	find ./ -name "*.proto" | xargs clang-format -i
-
-.PHONY: build
+# Build the docker image
 build:
-	go build $(LDFLAGS) ./cmd/trivy
+	docker build  --build-arg=VERSION=${VERSION} --build-arg=VCS_REF=${VCS_REF} --build-arg=BUILD_DATE=${BUILD_DATE}  -t ${IMG} .
 
-.PHONY: protoc
-protoc:
-	find ./rpc/ -name "*.proto" -type f -exec protoc --proto_path=$(GOSRC):. --twirp_out=. --go_out=. {} \;
+# Push the docker image
+push:
+	docker push ${IMG}
 
-.PHONY: install
-install:
-	go install $(LDFLAGS) ./cmd/trivy
-
-.PHONY: clean
-clean:
-	rm -rf integration/testdata/fixtures/
-
-$(GOBIN)/labeler:
-	GO111MODULE=off go get github.com/knqyf263/labeler
-
-.PHONY: label
-label: $(GOBIN)/labeler
-	labeler apply misc/triage/labels.yaml -r w6dio/trivy -l 5
-
-.PHONY: mkdocs-serve
-## Runs MkDocs development server to preview the documentation page
-mkdocs-serve:
-	docker build -t $(MKDOCS_IMAGE) -f docs/build/Dockerfile docs/build
-	docker run --name mkdocs-serve --rm -v $(PWD):/docs -p $(MKDOCS_PORT):8000 $(MKDOCS_IMAGE)
