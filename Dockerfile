@@ -19,7 +19,7 @@ WORKDIR /app/
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 RUN go mod download
 COPY . /app/
-RUN go build -ldflags "-X main.version=$(git describe --tags --abbrev=0)" -a -o /trivy cmd/trivy/main.go
+RUN go build -ldflags "-X main.version=$(git describe --tags --abbrev=0)" -a -o /trivy /trivy/cmd/trivy/main.go
 RUN upx --lzma --best /trivy
 
 FROM alpine:3.10
