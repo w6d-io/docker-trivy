@@ -19,6 +19,7 @@ WORKDIR /app/
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 RUN go mod download
 COPY . /app/
+RUN mkdir -p github.com/aquasecurity && git clone https://github.com/aquasecurity/trivy.git
 RUN go build -ldflags "-X main.version=$(git describe --tags --abbrev=0)" -a -o /trivy /trivy/cmd/trivy/main.go
 RUN upx --lzma --best /trivy
 
