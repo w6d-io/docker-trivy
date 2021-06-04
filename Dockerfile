@@ -23,7 +23,7 @@ RUN mkdir -p github.com/aquasecurity && cd github.com/aquasecurity && git clone 
 RUN ls github.com/aquasecurity/trivy/pkg/
 RUN ls github.com/aquasecurity/trivy/pkg/commands/
 
-RUN go build -ldflags "-X main.version=$(git describe --tags --abbrev=0)" -a -o github.com/aquasecurity/trivy cmd/trivy/main.go
+RUN go build -ldflags "-X main.version=$(git describe --tags --abbrev=0)" -a -o github.com/aquasecurity/trivy github.com/aquasecurity/trivy/cmd/trivy/main.go
 RUN upx --lzma --best /trivy
 
 FROM alpine:3.10
